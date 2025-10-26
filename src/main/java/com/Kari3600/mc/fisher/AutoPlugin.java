@@ -8,4 +8,5 @@ public @interface AutoPlugin {
     String name();
     String version();
     String author();
+    String apiVersion() default "";
 }

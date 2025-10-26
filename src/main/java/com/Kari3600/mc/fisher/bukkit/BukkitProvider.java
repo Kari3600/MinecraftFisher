@@ -27,6 +27,9 @@ public class BukkitProvider {
         config.set("version", plugin.version());
         config.set("author", plugin.author());
         config.set("main", mainClass);
+        if (!plugin.apiVersion().isEmpty()) {
+            config.set("api-version", plugin.apiVersion());
+        }
 
         ConfigurationSection commandsSection = config.createSection("commands");
         for (AutoCommand command : commands) {

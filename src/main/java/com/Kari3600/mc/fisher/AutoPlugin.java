@@ -9,4 +9,6 @@ public @interface AutoPlugin {
     String version();
     String author();
     String apiVersion() default "";
+    String[] depend() default {};
+    String[] softDepend() default {};
 }

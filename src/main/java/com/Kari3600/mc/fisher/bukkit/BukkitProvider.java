@@ -30,6 +30,12 @@ public class BukkitProvider {
         if (!plugin.apiVersion().isEmpty()) {
             config.set("api-version", plugin.apiVersion());
         }
+        if (plugin.depend().length > 0) {
+            config.set("depend", plugin.depend());
+        }
+        if (plugin.softDepend().length > 0) {
+            config.set("softdepend", plugin.softDepend());
+        }
 
         ConfigurationSection commandsSection = config.createSection("commands");
         for (AutoCommand command : commands) {

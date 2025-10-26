@@ -3,7 +3,6 @@ package com.Kari3600.mc.fisher;
 import com.Kari3600.mc.fisher.bukkit.BukkitProvider;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.*;
-import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
@@ -14,7 +13,6 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.Writer;
@@ -22,7 +20,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @AutoService(Processor.class)
-@SupportedAnnotationTypes({"com.Kari3600.mc.fisher.AutoListener","com.Kari3600.mc.fisher.AutoCommand"})
+@SupportedAnnotationTypes({"com.Kari3600.mc.fisher.AutoPlugin"})
 public class AnnotationProcessor extends AbstractProcessor {
 
     private static final Map<String,String> configSimpleTypes = new HashMap<String,String>() {{

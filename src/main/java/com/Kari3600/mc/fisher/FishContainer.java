@@ -25,6 +25,7 @@ public class FishContainer {
         return instance;
     }
 
+    private final Map<Class<?>, Class<?>> implementations = new HashMap<>();
     private final Map<Class<?>, Object> singletons = new HashMap<>();
 
     private List<Object> buildArgs(Constructor<?> constructor, Object[] args) {
@@ -45,6 +46,10 @@ public class FishContainer {
         return finalArgs;
     }
 
+    public <T> void registerImplementation(Class<T> clazz, Class<? extends T> implementation) {
+        implementations.put(clazz, implementation);
+    }
+
     public <T> T instantiate(Class<T> clazz, Object... args) {
         for (Constructor<?> constructor : clazz.getDeclaredConstructors()) {
             List<Object> finalArgs = buildArgs(constructor, args);
@@ -60,6 +65,7 @@ public class FishContainer {
         throw new RuntimeException("No suitable constructor found for " + clazz);
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T getFish(Class<T> clazz) {
         if (singletons.containsKey(clazz)) {
             return clazz.cast(singletons.get(clazz));
@@ -69,7 +75,11 @@ public class FishContainer {
             fish = BukkitProvider.getRegisteredService(clazz);
         }
         if (fish == null) {
-            fish = instantiate(clazz);
+            if (implementations.containsKey(clazz)) {
+                fish = (T) instantiate(implementations.get(clazz));
+            } else {
+                fish = instantiate(clazz);
+            }
         }
         singletons.put(clazz, fish);
         return fish;

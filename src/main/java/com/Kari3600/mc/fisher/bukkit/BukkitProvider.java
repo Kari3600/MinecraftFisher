@@ -48,12 +48,14 @@ public class BukkitProvider {
             config.set("softdepend", plugin.softDepend());
         }
 
-        ConfigurationSection commandsSection = config.createSection("commands");
-        for (AutoCommand command : commands) {
-            ConfigurationSection commandSection = commandsSection.createSection(command.name());
-            commandSection.set("description", command.description());
-            if (command.aliases().length != 0) commandSection.set("aliases", command.aliases());
-            if (!command.permission().isEmpty()) commandSection.set("permission", command.permission());
+        if (!commands.isEmpty()) {
+            ConfigurationSection commandsSection = config.createSection("commands");
+            for (AutoCommand command : commands) {
+                ConfigurationSection commandSection = commandsSection.createSection(command.name());
+                commandSection.set("description", command.description());
+                if (command.aliases().length != 0) commandSection.set("aliases", command.aliases());
+                if (!command.permission().isEmpty()) commandSection.set("permission", command.permission());
+            }
         }
 
         try (Writer writer = processor.generateFile("","plugin.yml")) {

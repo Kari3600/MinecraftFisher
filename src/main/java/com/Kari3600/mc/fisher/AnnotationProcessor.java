@@ -12,6 +12,8 @@
 package com.Kari3600.mc.fisher;
 
 import com.Kari3600.mc.fisher.bukkit.BukkitProvider;
+import com.Kari3600.mc.fisher.util.LambdaUtil;
+import com.Kari3600.mc.fisher.util.TypeReference;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.*;
 
@@ -20,6 +22,7 @@ import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.element.*;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -55,6 +58,45 @@ public class AnnotationProcessor extends AbstractProcessor {
 
     private String capitalize(String input) {
         return input.substring(0, 1).toUpperCase() + input.substring(1);
+    }
+
+    private ExecutableElement getReplaceableWithLambda(TypeMirror typeMirror, Types types, Elements elements) {
+        if (typeMirror.getKind() != TypeKind.DECLARED) return null;
+
+        Element element = types.asElement(typeMirror);
+
+        if (!(element instanceof TypeElement)) return null;
+
+        TypeElement typeElement = (TypeElement) element;
+
+        if (typeElement.getKind() != ElementKind.INTERFACE) return null;
+
+        List<? extends Element> allMembers = elements.getAllMembers(typeElement);
+
+        Set<ExecutableElement> methods = allMembers.stream()
+                .filter(e -> e.getKind() == ElementKind.METHOD)
+                .map(e -> (ExecutableElement) e)
+                .filter(e -> e.getModifiers().contains(Modifier.ABSTRACT))
+                .filter(e -> {
+                    TypeElement objectElement = elements.getTypeElement("java.lang.Object");
+
+                    for (Element el : objectElement.getEnclosedElements()) {
+                        if (el.getKind() == ElementKind.METHOD) {
+                            ExecutableElement objectMethod = (ExecutableElement) el;
+
+                            if (e.getSimpleName().equals(objectMethod.getSimpleName())
+                                    && e.getParameters().size() == objectMethod.getParameters().size()) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                })
+                .collect(Collectors.toSet());
+
+        if (methods.size() != 1) return null;
+
+        return methods.iterator().next();
     }
 
     @Override
@@ -168,29 +210,39 @@ public class AnnotationProcessor extends AbstractProcessor {
         TypeMirror serializableType = elementUtils.getTypeElement("org.bukkit.configuration.serialization.ConfigurationSerializable").asType();
         for (ExecutableElement e : configurationMethods) {
             AutoConfiguration annotation = e.getAnnotation(AutoConfiguration.class);
-            TypeMirror parameterType = e.getParameters().get(0).asType();
-            if (configSimpleTypes.containsKey(parameterType.toString())) {
-                reloadConfig.addStatement((e.getModifiers().contains(Modifier.STATIC) ? "$T" : "fishContainer.getFish($T.class)") + ".$L(" + configSimpleTypes.get(parameterType.toString()) + ")",
+            TypeMirror parameterTypeMirror = e.getParameters().get(0).asType();
+            TypeElement parameterType = (TypeElement) typeUtils.asElement(parameterTypeMirror);
+            if (configSimpleTypes.containsKey(parameterTypeMirror.toString())) {
+                reloadConfig.addStatement((e.getModifiers().contains(Modifier.STATIC) ? "$T" : "fishContainer.getFish($T.class)") + ".$L(" + configSimpleTypes.get(parameterTypeMirror.toString()) + ")",
                         e.getEnclosingElement(),
                         e.getSimpleName().toString(),
                         annotation.path()
                 );
-            } else if (configCollectionTypes.containsKey(typeUtils.erasure(parameterType).toString())) {
-                reloadConfig.addStatement((e.getModifiers().contains(Modifier.STATIC) ? "$T" : "fishContainer.getFish($T.class)") + ".$L(" + configCollectionTypes.get(typeUtils.erasure(parameterType).toString()) + ")",
+            } else if (configCollectionTypes.containsKey(typeUtils.erasure(parameterTypeMirror).toString())) {
+                reloadConfig.addStatement((e.getModifiers().contains(Modifier.STATIC) ? "$T" : "fishContainer.getFish($T.class)") + ".$L(" + configCollectionTypes.get(typeUtils.erasure(parameterTypeMirror).toString()) + ")",
                         e.getEnclosingElement(),
                         e.getSimpleName().toString(),
-                        parameterType,
+                        parameterTypeMirror,
                         annotation.path()
                 );
-            } else if (typeUtils.isAssignable(parameterType, serializableType)) {
+            } else if (typeUtils.isAssignable(parameterTypeMirror, serializableType)) {
                 reloadConfig.addStatement((e.getModifiers().contains(Modifier.STATIC) ? "$T" : "fishContainer.getFish($T.class)") + ".$L(($T) config.get($S))",
                         e.getEnclosingElement(),
                         e.getSimpleName().toString(),
-                        parameterType,
+                        parameterTypeMirror,
                         annotation.path()
                 );
+            } else if (elementUtils.isFunctionalInterface(parameterType)) {
+                reloadConfig.addStatement((e.getModifiers().contains(Modifier.STATIC) ? "$T" : "fishContainer.getFish($T.class)") + ".$L($T.parseExpressionAsFunctionalInterface(config.getString($S), new $T<$T>(){}))",
+                        e.getEnclosingElement(),
+                        e.getSimpleName().toString(),
+                        LambdaUtil.class,
+                        annotation.path(),
+                        TypeReference.class,
+                        parameterTypeMirror
+                );
             } else {
-                throw new RuntimeException("Unsupported parameter type: " + parameterType.toString());
+                throw new RuntimeException("Unsupported parameter type: " + parameterTypeMirror);
             }
         }
 
